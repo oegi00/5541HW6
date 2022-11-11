@@ -1,31 +1,29 @@
 import wave
-
 import numpy as np
 import matplotlib.pyplot as plt
 import struct
 import math # ask about library restriction
+from PIL import Image #is this one usable?
 
-# itemid = 'dr1-fvmh0/sx206'
-# spkrid , sentid = itemid.split('/')
-# item = TimitCorpusReader.utterance(spkrid, sentid)
-# obj = TimitCorpusReader.wav(itemid) #does not read the object?
-# print(TimitCorpusReader.audiodata(itemid))
-# sampleRate = 16000.0 #16,000 hertz sample rate
 
 def transform_all(windows):
-    print(len(windows))
-    # print("f")
     transformed = []
-
     for window in windows:
-        # print(i)
-        transformed.append(transform(window))
-
+        transformed_info = transform(window)
+        if not(transformed_info is None):
+            transformed.append(transformed_info)
     return transformed
 
-
 def transform(window):
-    fourier = np.fft.fft(window)
+    if (window is None): 
+        return None
+
+    try:
+        fourier = np.fft.fft(window)
+    except:
+        print(window)
+        print(type(window))
+
     ls = []
     
     for number in fourier:
@@ -42,23 +40,56 @@ def transform(window):
 def windowize(y_axis, step = 10, size = 25, sampling_rate = 16000):
     number_of_samples = int(sampling_rate*(size/1000))
     step = int(sampling_rate*(step/1000))
-
     # 1 / 0.025 s = 40 hz
-
     windows = []
     for i in range(0, y_axis.size, step):
-        windows.append(y_axis[i:i+(number_of_samples)])
+        if ((i + number_of_samples) > y_axis.size): #attempt to ensure array is completely square
+            first = np.copy(y_axis[i:i+(number_of_samples)])
 
-    # print(windows)
+            filled = first.resize(400)
+
+            #diff = (i + number_of_samples) - y_axis.size
+
+            windows.append(filled)
+
+        else:
+            windows.append(y_axis[i:i+(number_of_samples)])
+
     return windows
-        
 
-def main():
-    obj = wave.open("LDC93S1.wav")
+# def visualization():
+    # obj = wave.open("LDC93S1.wav")
+    # totalFrames = obj.getnframes()
+   
+    # # step = 100
+
+    # x_axis = np.array(range(0, totalFrames))
+    # y_axis = []
+
+    # for i in range(totalFrames):   
+    #     frames = obj.readframes(1)
+    #     y_axis.append(struct.unpack("<h", frames)[0])
+
+    # obj.close()
+
+    # y_axis = np.array(y_axis)
+
+    # max = np.amin(y_axis)
+    # min = np.amax(y_axis)
+
+    # standardize = lambda x: (x - min)/(max-min)
+    # y_axis = standardize(y_axis)
+
+    # windows = windowize(y_axis)
+
+    # plt.specgram(test,Fs=16000)
+    # plt.show()
+
+
+def main(filename = "LDC93S1.wav"):
+    obj = wave.open(filename) #how to accept arguments
     totalFrames = obj.getnframes()
     print(totalFrames)
-   
-    step = 100
 
     x_axis = np.array(range(0, totalFrames))
     y_axis = []
@@ -66,14 +97,10 @@ def main():
     for i in range(totalFrames):   
         frames = obj.readframes(1)
         y_axis.append(struct.unpack("<h", frames)[0])
-
     obj.close()
-        
     # y_axis = np.array(struct.iter_unpack("<h",frames))
 
     y_axis = np.array(y_axis)
-
-    
 
     max = np.amin(y_axis)
     min = np.amax(y_axis)
@@ -81,34 +108,71 @@ def main():
     standardize = lambda x: (x - min)/(max-min)
     y_axis = standardize(y_axis)
 
-    # plt.plot(y_axis)
-    # plt.show()
-    # print(y_axis)
+
     print(y_axis.size)
     windows = windowize(y_axis)
-
-    # print(windows[0])
-    # print(windows[0][10])
-    # print(windows[1])
+    
     print(len(windows))
-    print(len(windows[0]))
 
-    test = np.array(transform_all(windows)) 
+
+    print(windows[293-1])
+
+    # print(len(windows))
+    # print(len(windows[0]))
+
+    #transformed is the list of lists of frequency magnitude
+    transformed = np.array(transform_all(windows)) 
     # windows are not uniform; later windows are shorter as they are cut off
 
-    plt.plot(test)
-    # plt.show()
+    # for i in transformed:
+    #     print(len(i))
 
-    # print(test)
-    # imgplot = plt.imshow(test)
+    # print(transformed[0])
 
-    # print(tranform_test)
-    # print(len(tranform_test))
+        
+    #normalize
+    norm = []
 
+    tr_max = transformed[0][0]
+    tr_min = transformed[0][0]
+
+    for window in transformed:
+        temp_max = np.max(window)
+        temp_min = np.min(window)
+
+        if (temp_max > tr_max):
+            tr_max = temp_max
+        
+        if (temp_min < tr_min):
+            tr_min = temp_min
+
+    print(tr_min)
+    print(tr_max)
+
+    for transformed_window in transformed:
+        temp = []
+        for data in transformed_window:
+            # temp.append((float(data))*-1) #ask prof/ta about weird coloring?
+            temp.append(abs((data - tr_max) / (tr_max - tr_min)) * 255) #check with the ta if we're doing this correctly
+        norm.append(temp)
+
+    norm = np.array(norm)
+
+    print(norm[0])
     
-    #find min and max values
-    #turn them into floats; scale them to -1 to 1 scale
-    # need to figure out what should be the 0 or negative part of the graph
+    
+    #plt.specgram(test,Fs=16000)
+
+    # img = Image.fromarray(norm) #is using img fine?
+    # img.show()
+
+    plt.imshow(norm)
+    # plt.figure()
+    plt.title(f"Spectrogram of {filename}")
+    plt.ylabel("Frequency")
+    plt.xlabel("Time")
+    
+    plt.show()
 
     # obj.setframerate(sampleRate)
     # print( "Number of channels",obj.getnchannels())
@@ -116,6 +180,10 @@ def main():
     # print ( "Frame rate.",obj.getframerate())
     # print ("Number of frames",obj.getnframes())
     # print ( "parameters:",obj.getparams())
+    # should we make it take command line arguments?
+
 
 if __name__ == '__main__':
     main()
+
+    
