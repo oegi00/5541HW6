@@ -2,10 +2,12 @@ import wave
 import numpy as np
 import matplotlib.pyplot as plt
 import struct
-import math # ask about library restriction
+import math
 import sys
 
+hamming_scale = np.hamming(400)
 
+#apply fourier transformation on all of the windows
 def transform_all(windows):
     transformed = []
     for window in windows:
@@ -14,7 +16,11 @@ def transform_all(windows):
             transformed.append(transformed_info)
     return transformed
 
+#fourier transform on a single window
 def transform(window):
+    for i, wi in enumerate(window):
+        window[i] = wi * hamming_scale[i]
+
     if (window is None): 
         return None
     try:
@@ -23,11 +29,19 @@ def transform(window):
         print(window)
         print(type(window))
     ls = []
+
+    #grab the first half of the array
+    fourier = fourier[:200]
     
-    for number in fourier: #CHECK HERE
+    for number in fourier:
         magnitude = math.pow(number.real, 2) + math.pow(number.imag, 2)
         square_magnitude = math.sqrt(magnitude) 
-        log_scaled = 10 * math.log(square_magnitude,10) 
+        
+        try:
+            log_scaled = 10 * math.log(square_magnitude,10) 
+        except:
+            print(square_magnitude)
+            log_scaled = 0 #if error (typically value error, subsitute with a 0)
         ls.append(log_scaled)
 
     return ls
@@ -38,13 +52,8 @@ def windowize(y_axis, step = 10, size = 25, sampling_rate = 16000):
     step = int(sampling_rate*(step/1000))
     windows = []
 
-    for i in range(0, y_axis.size, step): #CHECK HERE?
-        # if ((i + number_of_samples) > y_axis.size): #attempt to ensure array is completely square
-        #     first = np.copy(y_axis[i:i+(number_of_samples)])
-        #     filled = first.resize(400)
-        #     #diff = (i + number_of_samples) - y_axis.size
-        #     windows.append(filled)
-        if (i+number_of_samples > y_axis.size):
+    for i in range(0, y_axis.size, step):
+        if (i+number_of_samples > y_axis.size): #hits the boundaries; not worth including
             break
         else:
             windows.append(y_axis[i:i+(number_of_samples)])
@@ -60,18 +69,12 @@ def main():
 
     y_axis = []
 
-    for i in range(totalFrames):   
+    for i in range(totalFrames):   #read file
         frames = obj.readframes(1)
         y_axis.append(struct.unpack("<h", frames)[0])
     obj.close()
 
     y_axis = np.array(y_axis)
-    max = np.amin(y_axis)
-    min = np.amax(y_axis)
-
-    #CHECK HERE
-    standardize = lambda x: (x - min)/(max-min) #standardizing here makes the constrast slightly higher
-    y_axis = standardize(y_axis)
 
     print(y_axis.size)
     windows = windowize(y_axis)
@@ -79,8 +82,6 @@ def main():
 
     #transformed is the list of lists of frequency magnitude
     transformed = np.array(transform_all(windows)) 
-
-    # transformed = transformed.T[200:,:] #attempt to lighten up the graph, comment out later
         
     #normalize
     norm = []
@@ -95,31 +96,24 @@ def main():
         if (temp_min < tr_min):
             tr_min = temp_min
 
-    # tr_min += 30 #manual changing, delete later
-    # tr_max -= 20
-    print(tr_min)
+    print(tr_min) #debugging
     print(tr_max)
 
     #normalize and scale all values to 0-255
-    for transformed_window in transformed: #CHECK HERE
+    for transformed_window in transformed:
         temp = []
-        for data in transformed_window:
-            # temp.append((float(data))*-1) #ask prof/ta about weird coloring?
-            # fix the coloring????
-            temp.append(255 - abs((data - tr_min) / (tr_max - tr_min)*255)) #check with the ta if we're doing this correctly
+        for data in transformed_window: #normalize the value, then scale to 0-255 and flip
+            temp.append(255- abs((data - tr_min) / (tr_max - tr_min)*255))
         norm.append(temp)
 
-    
-    norm = np.array(norm).T[200:,:]
-    # norm = np.array(norm) #comment out
-     
-    print(norm[0]) #one or two random values that are 0, everything else is light??
-    plt.imshow(norm, cmap='gray', vmin=0, vmax=255) #0 should be black, not white like specified in the warmup?
+    norm = np.array(norm).T #rotate the graph
+    norm = np.flip(norm,axis=0) #reflect the graph (to be right side up)
+
+    #graphing spectrogram
+    plt.imshow(norm, cmap='gray', vmin=0, vmax=255)
     plt.title(f"Spectrogram of {filename}")
     plt.ylabel("Frequency")
     plt.xlabel("Window")
-    # ax = plt.axes()
-    # ax.set_facecolor("white")
     plt.show()
     
 
