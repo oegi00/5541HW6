@@ -1,3 +1,5 @@
+#written by Angie Chen (chen7313) and Omonigho (egi00002)
+
 import wave
 import numpy as np
 import matplotlib.pyplot as plt
@@ -5,7 +7,7 @@ import struct
 import math
 import sys
 
-hamming_scale = np.hamming(400)
+hamming_scale = np.hamming(400) #hamming function
 
 #apply fourier transformation on all of the windows
 def transform_all(windows):
@@ -18,7 +20,7 @@ def transform_all(windows):
 
 #fourier transform on a single window
 def transform(window):
-    for i, wi in enumerate(window):
+    for i, wi in enumerate(window): #apply the hamming function
         window[i] = wi * hamming_scale[i]
 
     if (window is None): 
@@ -33,7 +35,7 @@ def transform(window):
     #grab the first half of the array
     fourier = fourier[:200]
     
-    for number in fourier:
+    for number in fourier: #log of square magnitude
         magnitude = math.pow(number.real, 2) + math.pow(number.imag, 2)
         square_magnitude = math.sqrt(magnitude) 
         
@@ -53,7 +55,7 @@ def windowize(y_axis, step = 10, size = 25, sampling_rate = 16000):
     windows = []
 
     for i in range(0, y_axis.size, step):
-        if (i+number_of_samples > y_axis.size): #hits the boundaries; not worth including
+        if (i+number_of_samples > y_axis.size): #hits the boundaries; data not worth including
             break
         else:
             windows.append(y_axis[i:i+(number_of_samples)])
